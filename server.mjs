@@ -3,6 +3,7 @@ import express from "express";
 import OpenAI from "openai";
 import pg from "pg";
 import path from "node:path";
+import fs from "node:fs/promises";
 import crypto from "node:crypto";
 import { fileURLToPath } from "node:url";
 
@@ -64,6 +65,16 @@ async function auth(req,res,next){
 function cleanJson(text){const t=String(text||"").trim().replace(/^```json\s*/i,"").replace(/^```\s*/,"").replace(/```$/i,"").trim();const a=t.indexOf("{"),b=t.lastIndexOf("}");if(a<0||b<0)throw new Error("AI returned invalid JSON");return JSON.parse(t.slice(a,b+1));}
 async function askAI(instructions,input){if(!client){const e=new Error("OPENAI_API_KEY не настроен на сервере.");e.status=503;throw e;}const r=await client.responses.create({model:process.env.OPENAI_MODEL||"gpt-5.6-luna",instructions,input,store:false});return cleanJson(r.output_text);}
 
+async function initDatabase(){
+  if(!process.env.DATABASE_URL){
+    const e=new Error("DATABASE_URL не настроен на сервере.");
+    e.status=503;
+    throw e;
+  }
+  const schema=await fs.readFile(path.join(__dirname,"schema.sql"),"utf8");
+  await pool.query(schema);
+}
+
 async function ensureAdmin(){
   if(!ADMIN_EMAIL || !ADMIN_PASSWORD) return;
   const {rows}=await pool.query('SELECT id FROM users WHERE email=$1',[ADMIN_EMAIL]);
@@ -106,7 +117,7 @@ app.get("/api/profile",auth,async(req,res)=>{
     const user=await refreshUsage(req.user);
     const [stats, recent]=await Promise.all([
       pool.query(`SELECT COUNT(*)::int AS saved_count FROM saved_scripts WHERE user_id=$1`,[user.id]),
-      pool.query(`SELECT action,created_at FROM ai_activity WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10`,[user.id])
+      pool.query(`SELECT action_type AS action,created_at FROM usage_events WHERE user_id=$1 ORDER BY created_at DESC LIMIT 10`,[user.id])
     ]);
     res.json({user:publicUser(user),stats:{savedCount:stats.rows[0]?.saved_count||0},recent:recent.rows});
   }catch(e){res.status(500).json({error:e.message||"Не удалось загрузить профиль"});}
@@ -161,6 +172,6 @@ app.post("/api/analyze",auth,async(req,res)=>{try{if(!(await consume(req,res)))r
 app.get('/admin',(req,res)=>res.sendFile(path.join(__dirname,'public','admin.html')));
 app.get("*",(req,res)=>res.sendFile(path.join(__dirname,"public","index.html")));
 
-(async()=>{try{await ensureAdmin();app.listen(port,()=>console.log(`SHORTS AI v1.5 running on http://localhost:${port}`));}catch(e){console.error('Startup DB error:',e);process.exit(1)}})();
+(async()=>{try{await initDatabase();await ensureAdmin();app.listen(port,"0.0.0.0",()=>console.log(`SHORTS AI running on port ${port}`));}catch(e){console.error('Startup DB error:',e);process.exit(1)}})();
 process.on("SIGINT",async()=>{await pool.end();process.exit(0)});
 process.on("SIGTERM",async()=>{await pool.end();process.exit(0)});

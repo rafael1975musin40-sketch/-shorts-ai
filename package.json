@@ -1,1 +1,1 @@
-{"name":"shorts-ai-real-v17","version":"1.7.0","private":true,"type":"module","scripts":{"start":"node server.mjs","dev":"node --watch server.mjs"},"dependencies":{"dotenv":"^16.4.5","express":"^4.21.2","openai":"^5.0.0","pg":"^8.16.3"}}
+{"name":"shorts-ai-real","version":"2.0.0","private":true,"type":"module","scripts":{"start":"node server.mjs","dev":"node --watch server.mjs"},"dependencies":{"dotenv":"^16.4.5","express":"^4.21.2","openai":"^5.0.0","pg":"^8.16.3"}}

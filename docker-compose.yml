@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: shorts-ai-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shorts_ai
+      POSTGRES_USER: shorts_ai
+      POSTGRES_PASSWORD: shorts_ai_local_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - shorts_ai_pgdata:/var/lib/postgresql/data
+      - ./schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+volumes:
+  shorts_ai_pgdata:
